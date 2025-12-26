@@ -3,21 +3,29 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Snowflake, Sparkles, Volume2, VolumeX, Wand2, ChevronRight, Gamepad2, Heart, Star } from 'lucide-react';
 import CinematicScene from './components/CinematicScene';
 import OverlayUI from './components/OverlayUI';
-import NameReveal from './components/NameReveal';
+import NameReveal3D from './components/NameReveal3D';
 import ChristmasTicTacToe from './components/ChristmasTicTacToe';
+import CinematicIntro from './components/CinematicIntro';
+import WishMaker from './components/WishMaker';
+import SpecialCoracheIntro from './components/SpecialCoracheIntro';
+import ConfirmLastName from './components/ConfirmLastName';
 import { getLocalPoem } from './services/poetryService';
+import { getEmotionalTheme, EmotionalTheme } from './themes';
+import { createPersonalizedOutro } from './utils/WinterMemory';
 
-export enum AppState { 
-  IDLE, 
-  LOADING, 
-  METAMORPHOSIS, 
-  INTRO, 
-  CINEMATIC, 
-  REVEAL, 
+export enum AppState {
+  IDLE,
+  LOADING,
+  METAMORPHOSIS,
+  INTRO,
+  CINEMATIC,
+  REVEAL,
   GAME_CHALLENGE,
   TIC_TAC_TOE,
-  WISH, 
-  OUTRO 
+  WISH,
+  OUTRO,
+  CONFIRM_LAST_NAME,
+  SPECIAL
 }
 
 const App: React.FC = () => {
@@ -25,11 +33,12 @@ const App: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [poem, setPoem] = useState<string>('');
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [outroData, setOutroData] = useState<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialisation de la musique
   useEffect(() => {
-    audioRef.current = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3');
+    audioRef.current = new Audio('/assets/s1.mpeg');
     if (audioRef.current) {
       audioRef.current.loop = true;
       audioRef.current.volume = isMuted ? 0 : 0.4;
@@ -54,24 +63,42 @@ const App: React.FC = () => {
     }
   }, [state]);
 
-  const accentColor = useMemo(() => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('peace') || lowerName.includes('noukouyekpon')) return '#f472b6'; // Rose pour elle
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return `hsl(${Math.abs(hash % 360)}, 70%, 75%)`;
+  const theme = useMemo((): EmotionalTheme => {
+    return getEmotionalTheme(name);
   }, [name]);
+
+  useEffect(() => {
+    if (state === AppState.OUTRO && name && !outroData) {
+      const userData = {
+        fullName: name,
+        isSpecial: name.toLowerCase().includes('peace') || name.toLowerCase().includes('noukouyekpon') || name.toLowerCase().includes('isabelle') || name.toLowerCase().includes('corache')
+      };
+      const experienceData = {
+        theme: theme.particles,
+        duration: 300, // simulated duration
+        interactions: 10, // simulated interactions
+        wish: 'A magical wish' // could be passed from WishMaker
+      };
+      const outro = createPersonalizedOutro(userData, experienceData);
+      setOutroData(outro);
+    }
+  }, [state, name, outroData, theme]);
 
   const startExperience = (targetName: string) => {
     setName(targetName);
-    setState(AppState.LOADING);
-    
-    setTimeout(() => {
-      setState(AppState.METAMORPHOSIS);
-      const generatedPoem = getLocalPoem(targetName);
-      setPoem(generatedPoem);
-      setTimeout(() => setState(AppState.INTRO), 2000);
-    }, 1500);
+    const isPotentialSpecial = targetName.toLowerCase().includes('corache') || targetName.toLowerCase().includes('isabelle');
+    if (isPotentialSpecial) {
+      setState(AppState.CONFIRM_LAST_NAME);
+    } else {
+      setState(AppState.LOADING);
+
+      setTimeout(() => {
+        setState(AppState.METAMORPHOSIS);
+        const generatedPoem = getLocalPoem(targetName);
+        setPoem(generatedPoem);
+        setTimeout(() => setState(AppState.INTRO), 2000);
+      }, 1500);
+    }
   };
 
   const handleRestart = () => {
@@ -84,6 +111,22 @@ const App: React.FC = () => {
     }
   };
 
+  const getNextState = (currentState: AppState): AppState => {
+    switch (currentState) {
+      case AppState.IDLE: return AppState.LOADING;
+      case AppState.LOADING: return AppState.METAMORPHOSIS;
+      case AppState.METAMORPHOSIS: return AppState.INTRO;
+      case AppState.INTRO: return AppState.CINEMATIC;
+      case AppState.CINEMATIC: return AppState.REVEAL;
+      case AppState.REVEAL: return AppState.GAME_CHALLENGE;
+      case AppState.GAME_CHALLENGE: return AppState.TIC_TAC_TOE;
+      case AppState.TIC_TAC_TOE: return AppState.WISH;
+      case AppState.WISH: return AppState.OUTRO;
+      case AppState.OUTRO: return AppState.IDLE;
+      default: return currentState;
+    }
+  };
+
   const renderFinalName = () => {
     const firstName = name.split(' ')[0];
     const lastName = name.split(' ').slice(1).join(' ');
@@ -92,8 +135,8 @@ const App: React.FC = () => {
       <div className="flex flex-col items-center justify-center w-full px-4 text-center">
         <span className="text-xl md:text-3xl opacity-60 font-serif italic mb-4 tracking-widest uppercase">Ma chère,</span>
         <div className="flex flex-col items-center w-full">
-          <span 
-            style={{ color: accentColor, textShadow: `0 0 30px ${accentColor}44` }} 
+          <span
+            style={{ color: theme.primary, textShadow: `0 0 30px ${theme.primary}44` }}
             className="text-6xl md:text-[8rem] font-magic block leading-none mb-4"
           >
             {firstName}
@@ -110,10 +153,10 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#020617] overflow-hidden text-white">
-      <CinematicScene 
-        active={state >= AppState.METAMORPHOSIS} 
+      <CinematicScene
+        active={state >= AppState.METAMORPHOSIS}
         slowMode={state >= AppState.REVEAL}
-        accentColor={accentColor}
+        theme={theme}
         showTree={state >= AppState.REVEAL}
         treeSideMode={state === AppState.REVEAL || state === AppState.TIC_TAC_TOE}
       />
@@ -128,7 +171,67 @@ const App: React.FC = () => {
         </button>
       </div>
 
+      {/* Boutons de contrôle */}
+      {state >= AppState.INTRO && (
+        <div className="absolute top-8 left-8 z-[110] flex gap-2">
+          <button
+            onClick={() => setState(getNextState(state))}
+            className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white/80 hover:bg-white/10 transition-all"
+            title="Aller à l'étape suivante"
+          >
+            Passer
+          </button>
+          <button
+            onClick={handleRestart}
+            className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white/80 hover:bg-white/10 transition-all"
+            title="Terminer l'expérience et revenir à l'accueil"
+          >
+            Fin
+          </button>
+        </div>
+      )}
+
       {state === AppState.IDLE && <OverlayUI onStart={startExperience} />}
+
+      {state === AppState.CONFIRM_LAST_NAME && (
+        <ConfirmLastName
+          firstName={name.split(' ')[0]}
+          onConfirm={(lastName) => {
+            if (lastName.toLowerCase() === 'akpakoun') {
+              setName(`${name} ${lastName}`);
+              // Start special music
+              if (audioRef.current) {
+                audioRef.current.src = '/assets/s3.mpeg';
+                audioRef.current.play().catch(() => {});
+              }
+              setState(AppState.SPECIAL);
+            } else {
+              setState(AppState.LOADING);
+              setTimeout(() => {
+                setState(AppState.METAMORPHOSIS);
+                const generatedPoem = getLocalPoem(name);
+                setPoem(generatedPoem);
+                setTimeout(() => setState(AppState.INTRO), 2000);
+              }, 1500);
+            }
+          }}
+        />
+      )}
+
+      {state === AppState.SPECIAL && (
+        <SpecialCoracheIntro
+          name={name}
+          onComplete={() => {
+            setState(AppState.LOADING);
+            setTimeout(() => {
+              setState(AppState.METAMORPHOSIS);
+              const generatedPoem = getLocalPoem(name);
+              setPoem(generatedPoem);
+              setTimeout(() => setState(AppState.INTRO), 2000);
+            }, 1500);
+          }}
+        />
+      )}
 
       {state === AppState.LOADING && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-[#020617]">
@@ -149,19 +252,11 @@ const App: React.FC = () => {
       )}
 
       {state === AppState.INTRO && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-40 bg-[#020617] px-8 text-center animate-[fadeOut_2s_ease-in_forwards_delay-5s]">
-          <div className="max-w-4xl space-y-16">
-            <h2 className="text-4xl md:text-6xl font-serif italic text-white/90 leading-relaxed animate-[fadeInOut_5s_ease-in-out_forwards]">
-              "Dans le silence de cette nuit de Noël, ton nom brille plus que tout."
-            </h2>
-            <button 
-              onClick={() => setState(AppState.CINEMATIC)}
-              className="px-12 py-5 border border-white/10 text-white/40 hover:text-white transition-all tracking-[0.6em] uppercase text-[10px] animate-[fadeIn_3s_ease-out_2s_forwards] opacity-0"
-            >
-              Découvrir ton Noël
-            </button>
-          </div>
-        </div>
+        <CinematicIntro
+          userName={name}
+          theme={theme}
+          onComplete={() => setState(AppState.CINEMATIC)}
+        />
       )}
 
       {state === AppState.CINEMATIC && (
@@ -174,11 +269,11 @@ const App: React.FC = () => {
       )}
 
       {state === AppState.REVEAL && (
-        <NameReveal 
-          name={name} 
-          poem={poem} 
-          accentColor={accentColor}
-          onComplete={() => setState(AppState.GAME_CHALLENGE)} 
+        <NameReveal3D
+          name={name}
+          poem={poem}
+          theme={theme}
+          onComplete={() => setState(AppState.GAME_CHALLENGE)}
         />
       )}
 
@@ -203,48 +298,55 @@ const App: React.FC = () => {
       {state === AppState.TIC_TAC_TOE && (
         <div className="absolute inset-0 flex items-center justify-center z-[120] bg-[#020617]/80 backdrop-blur-2xl animate-[fadeIn_1s_ease-out]">
           <div className="max-w-md w-full p-8 bg-white/5 border border-white/10 rounded-[3rem] relative shadow-2xl">
-            <ChristmasTicTacToe onWin={() => setState(AppState.WISH)} />
+            <ChristmasTicTacToe
+              onWin={() => setState(AppState.WISH)}
+              playerName={name}
+              theme={theme}
+            />
           </div>
         </div>
       )}
 
       {state === AppState.WISH && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/20 backdrop-blur-[2px] animate-[fadeIn_3s_ease-out]">
-          <div className="text-center space-y-16 max-w-3xl px-10">
-            <div className="relative inline-block">
-               <Wand2 className="text-amber-200 animate-pulse" size={64} />
-            </div>
-            <div className="space-y-6">
-              <h2 className="text-5xl md:text-[5rem] font-serif italic text-white">Fais un vœu, {name.split(' ')[0]}...</h2>
-              <p className="text-white/30 tracking-[0.5em] uppercase text-[10px]">Laisse ton cœur parler aux étoiles</p>
-            </div>
-            <button 
-              onClick={() => setState(AppState.OUTRO)}
-              className="px-12 py-5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white uppercase tracking-[0.5em] text-[10px] transition-all"
-            >
-              C'est fait
-            </button>
-          </div>
-        </div>
+        <WishMaker
+          userName={name}
+          theme={theme}
+          onComplete={() => setState(AppState.OUTRO)}
+        />
       )}
 
-      {state === AppState.OUTRO && (
+      {state === AppState.OUTRO && outroData && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-[#020617]/90 backdrop-blur-xl animate-[fadeIn_3s_ease-out]">
-           <div className="text-center space-y-12">
-              {renderFinalName()}
-              <div className="space-y-6">
-                <Heart className="mx-auto text-pink-400 animate-bounce" size={32} />
-                <p className="font-serif italic text-white/70 text-2xl max-w-lg mx-auto leading-relaxed">
-                  "Que ce Noël soit le début d'une année remplie de lumière."
-                </p>
-              </div>
-              <button 
-                onClick={handleRestart}
-                className="mt-12 text-[9px] tracking-[0.5em] uppercase text-white/20 hover:text-white transition-all"
-              >
-                Recommencer le voyage
-              </button>
-           </div>
+            <div className="text-center space-y-12 max-w-4xl px-8">
+               {renderFinalName()}
+               <div className="space-y-6">
+                 <Heart className="mx-auto text-pink-400 animate-bounce" size={32} />
+                 <h3 className="text-3xl font-serif italic text-white/90">{outroData.title}</h3>
+                 <p className="font-serif italic text-white/70 text-xl max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
+                   {outroData.message}
+                 </p>
+               </div>
+
+               {/* Memory information */}
+               <div className="space-y-4 text-sm text-white/50">
+                 <p className="text-xs">Ton souvenir a été sauvegardé dans les étoiles d'hiver</p>
+               </div>
+
+               <div className="flex flex-col items-center gap-4">
+                 <button
+                   onClick={handleRestart}
+                   className="text-[9px] tracking-[0.5em] uppercase text-white/20 hover:text-white transition-all"
+                 >
+                   Recommencer le voyage
+                 </button>
+                 <button
+                   onClick={() => navigator.share?.({ title: 'Mon souvenir d\'Étoile d\'Hiver', url: outroData.shareable })}
+                   className="text-[8px] tracking-[0.3em] uppercase text-white/10 hover:text-white/30 transition-all"
+                 >
+                   Partager ce moment
+                 </button>
+               </div>
+            </div>
         </div>
       )}
 

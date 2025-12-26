@@ -1,14 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
+import { EmotionalTheme } from '../themes';
 
 interface NameRevealProps {
   name: string;
   poem: string;
   onComplete: () => void;
-  accentColor: string;
+  theme: EmotionalTheme;
 }
 
-const NameReveal: React.FC<NameRevealProps> = ({ name, poem, onComplete, accentColor }) => {
+const NameReveal: React.FC<NameRevealProps> = ({ name, poem, onComplete, theme }) => {
+  const accentColor = theme.primary;
   const [phase, setPhase] = useState(0);
   const [currentLineIdx, setCurrentLineIdx] = useState(-1);
   const lines = poem.split('\n').filter(l => l.trim().length > 0);
