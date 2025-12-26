@@ -150,6 +150,6 @@ Ce projet est sous licence MIT.
 
 ## Crédits
 
-Créé par Eucher ABATTI +229 0157002427 DAN
+Créé par Eucher ABATTI +229 0157002427
 
 Développé avec ❤️ pour une expérience de Noël inoubliable.
